@@ -140,6 +140,8 @@ resource "aws_subnet" "private" {
 }
 ```
 
+![alt text](/images/1.png)
+
 ### Code — Explanation
 - `count` → Defines how many subnets to create, based on user input or number of AZs.
 - `availability_zone` → Spreads subnets evenly across AZs for high availability.
@@ -162,6 +164,8 @@ resource "aws_internet_gateway" "ig" {
   )
 }
 ```
+
+![alt text](/images/3.png)
 
 ### Code — Explanation
 - Creates an Internet Gateway (IGW) and attaches it to the main VPC so public subnets can reach the internet.
@@ -212,6 +216,8 @@ resource "aws_nat_gateway" "nat" {
   )
 }
 ```
+
+![alt text](/images/4.png)
 
 ### Purpose:
 - Provides outbound internet access for private subnets.
@@ -270,6 +276,8 @@ resource "aws_route_table_association" "public_subnet_assoc" {
 }
 ```
 
+![alt text](/images/5.png)
+
 ### ✅ What This File Does
 - Private Route Table
   - Routes internal traffic
@@ -287,6 +295,7 @@ resource "aws_route_table_association" "public_subnet_assoc" {
 
 The EC2 service must assume a role to obtain temporary credentials through STS.
 This role defines who can assume it — in this case, EC2.
+roles.tf
 ```hcl
 resource "aws_iam_role" "ec2_instance_role" {
   name = "ec2_instance_role"
@@ -306,7 +315,7 @@ resource "aws_iam_role" "ec2_instance_role" {
 }
 ```
 
-### 📌 2. Create a Custom IAM Policy
+### 📌Step 2. Create a Custom IAM Policy
 
 This policy defines what the EC2 instance is allowed to do. For this project, we allow the instance to describe EC2 resources.
 ```hcl
@@ -358,6 +367,8 @@ resource "aws_iam_instance_profile" "ec2_instance_profile" {
 ```hcl
 iam_instance_profile = aws_iam_instance_profile.ec2_instance_profile.name
 ```
+
+![alt text](/images/6.png)
 
 ### In this phase, we created:
 | Resource              | Purpose                                |
@@ -622,6 +633,8 @@ resource "aws_security_group_rule" "datalayer_mysql_from_web" {
 }
 ```
 
+![alt text](/images/7.png)
+
 At this point, you have a complete multi-tier firewall architecture protecting:
 
 - Public Layer
@@ -798,6 +811,8 @@ resource "aws_lb_listener_rule" "tooling" {
 }
 ```
 
+![alt text](/images/8.png)
+
 ### ✅ Key Takeaways
 
 - External ALB → Public-facing → Routes traffic to Nginx
@@ -948,6 +963,9 @@ resource "aws_autoscaling_attachment" "nginx_attach" {
 - **WordPress** ASG → Internal ALB
 - **Tooling** ASG → Internal ALB
 
+![alt text](/images/9.png)
+![alt text](/images/10.png)
+
 ### ✅ Key Takeaways
 
 - Launch templates standardize instance configurations across ASGs.
@@ -1090,6 +1108,8 @@ resource "aws_efs_access_point" "tooling" {
 }
 ```
 
+![alt text](/images/15.png)
+
 ### 🔷Step 2. Create MySQL RDS Database
 
 Create file: `rds.tf`
@@ -1141,6 +1161,8 @@ resource "aws_db_instance" "acs_rds" {
 }
 ```
 
+![alt text](/images/16.png)
+
 By completing this phase, we now have:
 
 🔐 **KMS**
@@ -1184,6 +1206,8 @@ yum update -y
 yum install ansible git -y
 ```
 
+![alt text](/images/12.png)
+
 ### 3.2 Nginx Reverse Proxy User Data — `nginx.sh`
 
 Installs and configures Nginx, then starts the service automatically.
@@ -1194,6 +1218,8 @@ yum install nginx -y
 systemctl enable nginx
 systemctl start nginx
 ```
+
+![alt text](/images/11.png)
 
 ### 3.3 Tooling Application Server User Data — `tooling.sh`
 
@@ -1206,6 +1232,8 @@ systemctl enable httpd
 systemctl start httpd
 echo "Tooling Website" > /var/www/html/index.html
 ```
+
+![alt text](/images/14.png)
 
 ### 3.4 WordPress Server User Data — `wordpress.sh`
 
@@ -1232,6 +1260,8 @@ chmod -R 755 /var/www/html
 # restart apache
 systemctl restart httpd
 ```
+
+![alt text](/images/13.png)
 
 ## Variable Declaration Validation
 
@@ -1325,6 +1355,8 @@ variable "master-password" {
 }
 ```
 
+![alt text](/images/2.png)
+
 ## Terraform Variables Configuration (`terraform.tfvars`)
 
 This file provides the concrete values for the variables declared in `variables.tf`. It allows Terraform to provision the infrastructure using consistent and environment-specific settings.
@@ -1381,7 +1413,22 @@ terraform plan
 terraform apply
 ```
 
+![alt text](/images/17.png)
+![alt text](/images/18.png)
+![alt text](/images/19.png)
+![alt text](/images/20.png)
 
+**Now you can go into your AWS Management Console to confirm resources created**
+
+![alt text](/images/21.png)
+![alt text](/images/22.png)
+![alt text](/images/23.png)
+![alt text](/images/24.png)
+![alt text](/images/25.png)
+![alt text](/images/26.png)
+![alt text](/images/27.png)
+![alt text](/images/28.png)
+![alt text](/images/29.png)
 
 
 
