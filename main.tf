@@ -1,3 +1,7 @@
+#################################################
+# Provider and Data
+#################################################
+
 provider "aws" {
   region = var.region
 }
@@ -6,45 +10,108 @@ data "aws_availability_zones" "available" {
   state = "available"
 }
 
-resource "aws_vpc" "main" {
-  cidr_block           = var.vpc_cidr
-  enable_dns_support   = var.enable_dns_support
-  enable_dns_hostnames = var.enable_dns_hostnames
+#################################################
+# Network Module
+#################################################
 
-  tags = {
-    Name = "main-vpc"
+module "network" {
+  source = "./modules/network"
+
+  vpc_cidr                            = var.vpc_cidr
+  enable_dns_support                  = var.enable_dns_support
+  enable_dns_hostnames                = var.enable_dns_hostnames
+  azs                                 = var.azs
+  preferred_number_of_public_subnets  = var.preferred_number_of_public_subnets
+  preferred_number_of_private_subnets = var.preferred_number_of_private_subnets
+  tags                                = var.tags
+  name                                = var.name
+}
+
+#################################################
+# IAM Module
+#################################################
+
+module "iam" {
+  source = "./modules/iam"
+  tags   = var.tags
+}
+
+#################################################
+# Security Module
+#################################################
+
+module "security" {
+  source = "./modules/security"
+  vpc_id = module.network.vpc_id
+  tags   = var.tags
+}
+
+#################################################
+# ALB Module
+#################################################
+
+module "alb" {
+  source = "./modules/ALB"
+
+  vpc_id          = module.network.vpc_id
+  public_subnets  = module.network.public_subnet_ids
+  private_subnets = module.network.private_subnet_ids
+
+  ext_alb_sg_id = module.security.ext_alb_sg_id
+  int_alb_sg_id = module.security.int_alb_sg_id
+  tags          = var.tags
+}
+
+
+#################################################
+# Compute Module
+#################################################
+
+module "compute" {
+  source = "./modules/compute"
+
+  region               = var.region
+  images               = var.images
+  keypair              = var.keypair
+  tags                 = var.tags
+  iam_instance_profile = module.iam.instance_profile_name
+
+  bastion_sg_id  = module.security.bastion_sg_id
+  nginx_sg_id    = module.security.nginx_sg_id
+  web_sg_id      = module.security.webserver_sg_id
+
+  subnets_public  = module.network.public_subnet_ids
+  subnets_private = module.network.private_subnet_ids
+
+  alb_target_groups = {
+    nginx     = module.alb.nginx_tgt_arn
+    wordpress = module.alb.wordpress_tgt_arn
+    tooling   = module.alb.tooling_tgt_arn
   }
 }
 
-resource "aws_subnet" "public" {
-  count                   = var.preferred_number_of_public_subnets == null ? length(data.aws_availability_zones.available.names) : var.preferred_number_of_public_subnets
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = cidrsubnet(var.vpc_cidr, 4, count.index * 2)
-  map_public_ip_on_launch = true
-  availability_zone       = data.aws_availability_zones.available.names[count.index]
-  
-  tags = merge(
-    var.tags,
-    {
-      Name = format("public-subnet-%02d", count.index + 1)
-      Tier = "public"
-    }
-  )
-} 
+#################################################
+# EFS Module
+#################################################
 
-resource "aws_subnet" "private" {
-  count                   = var.preferred_number_of_private_subnets == null ? length(data.aws_availability_zones.available.names) : var.preferred_number_of_private_subnets
-  vpc_id                  = aws_vpc.main.id
-  availability_zone       = var.azs[floor(count.index / 2)]
-  cidr_block              = cidrsubnet(var.vpc_cidr, 4, count.index * 2 + 1)
-  map_public_ip_on_launch = false
-
-  tags = merge(
-    var.tags,
-    {
-      Name = format("private-subnet-%02d", count.index + 1)
-      Tier = "private"
-    }
-  )
+module "efs" {
+  source          = "./modules/efs"
+  account_no      = var.account_no
+  tags            = var.tags
+  private_subnets = module.network.private_subnet_ids
+  efs_sg_id       = module.security.datalayer_sg_id
 }
 
+#################################################
+# RDS Module
+#################################################
+
+module "rds" {
+  source           = "./modules/rds"
+  private_subnets  = module.network.private_subnet_ids
+  datalayer_sg_id  = module.security.datalayer_sg_id
+  tags             = var.tags
+  master_username  = var.master-username
+  master_password  = var.master-password
+  db_name          = "maxidb"
+}

@@ -1432,3 +1432,13 @@ terraform apply
 
 
 
+
+
+
+
+variable "ami" {
+  type        = string
+  description = "AMI ID for the launch template"
+}
+
+ami     = "ami-099400d52583dd8c4"

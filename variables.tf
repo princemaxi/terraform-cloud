@@ -56,9 +56,15 @@ variable "tags" {
   description = "Common tags applied to all resources"
 }
 
-variable "ami" {
-  type        = string
-  description = "AMI ID for the launch template"
+# AMI mapping per region
+variable "images" {
+  description = "Map of AMI IDs per region"
+  type        = map(string)
+  default = {
+    "us-east-1" = "ami-1234abcd"
+    "us-west-2" = "ami-23834xyz"
+    "eu-west-2" = "ami-099400d52583dd8c4"
+  }
 }
 
 variable "keypair" {
