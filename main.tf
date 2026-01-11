@@ -53,9 +53,10 @@ module "security" {
 module "alb" {
   source = "./modules/ALB"
 
-  vpc_id          = module.network.vpc_id
-  public_subnets  = module.network.public_subnet_ids
-  private_subnets = module.network.private_subnet_ids
+  vpc_id = module.network.vpc_id
+
+  public_subnets_by_az  = module.network.public_subnets_by_az
+  private_subnets_by_az = module.network.private_subnets_by_az
 
   ext_alb_sg_id = module.security.ext_alb_sg_id
   int_alb_sg_id = module.security.int_alb_sg_id
@@ -95,11 +96,12 @@ module "compute" {
 #################################################
 
 module "efs" {
-  source          = "./modules/EFS"
-  account_no      = var.account_no
-  tags            = var.tags
-  private_subnets = module.network.private_subnet_ids
-  efs_sg_id       = module.security.datalayer_sg_id
+  source = "./modules/EFS"
+
+  account_no              = var.account_no
+  tags                    = var.tags
+  private_subnets_by_az   = module.network.private_subnets_by_az
+  efs_sg_id               = module.security.datalayer_sg_id
 }
 
 #################################################

@@ -2,8 +2,8 @@
 # KMS Key & Alias
 ##########################################
 resource "aws_kms_key" "acs_kms" {
-  description = "KMS key for EFS encryption"
-  deletion_window_in_days = 7  # Minimum is 7 days, maximum is 30
+  description             = "KMS key for EFS encryption"
+  deletion_window_in_days = 7
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -11,7 +11,7 @@ resource "aws_kms_key" "acs_kms" {
       Sid    = "Enable IAM User Permissions"
       Effect = "Allow"
       Principal = {
-        AWS = "arn:aws:iam::${var.account_no}:user/terraform"
+        AWS = "arn:aws:iam::${var.account_no}:root"
       }
       Action   = "kms:*"
       Resource = "*"
@@ -31,37 +31,16 @@ resource "aws_efs_file_system" "acs_efs" {
   encrypted  = true
   kms_key_id = aws_kms_key.acs_kms.arn
 
-  tags = merge(var.tags, { Name = "ACS-efs" })
-}
-
-##########################################
-# Lookup subnets (needed for AZ)
-##########################################
-data "aws_subnet" "private" {
-  for_each = toset(var.private_subnets)
-  id       = each.value
-}
-
-##########################################
-# One subnet per AZ (CRITICAL FIX)
-##########################################
-locals {
-  subnets_by_az = {
-    for s in data.aws_subnet.private :
-    s.availability_zone => s.id...
-  }
-
-  one_subnet_per_az = {
-    for az, ids in local.subnets_by_az :
-    az => ids[0]
-  }
+  tags = merge(var.tags, {
+    Name = "ACS-efs"
+  })
 }
 
 ##########################################
 # EFS Mount Targets (ONE PER AZ)
 ##########################################
 resource "aws_efs_mount_target" "mt" {
-  for_each = local.one_subnet_per_az
+  for_each = var.private_subnets_by_az
 
   file_system_id  = aws_efs_file_system.acs_efs.id
   subnet_id       = each.value

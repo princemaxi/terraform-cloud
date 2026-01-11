@@ -37,28 +37,28 @@ locals {
       name      = "bastion"
       sg_id     = var.bastion_sg_id
       subnets   = var.subnets_public
-      user_data = "userdata/bastion.sh"
+      user_data = "AMI/bastion.sh"
       placement = 0
     },
     {
       name      = "nginx"
       sg_id     = var.nginx_sg_id
       subnets   = var.subnets_public
-      user_data = "userdata/nginx.sh"
+      user_data = "AMI/nginx.sh"
       placement = 1
     },
     {
       name      = "wordpress"
       sg_id     = var.web_sg_id
       subnets   = var.subnets_private
-      user_data = "userdata/wordpress.sh"
+      user_data = "AMI/wordpress.sh"
       placement = 0
     },
     {
       name      = "tooling"
       sg_id     = var.web_sg_id
       subnets   = var.subnets_private
-      user_data = "userdata/tooling.sh"
+      user_data = "AMI/tooling.sh"
       placement = 1
     }
   ]
