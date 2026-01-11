@@ -1,11 +1,3 @@
-variable "region" {
-  type    = string
-  default = "eu-west-2"
-}
-
-locals { timestamp = regex_replace(timestamp(), "[- TZ:]", "") }
-
-
 # source blocks are generated from your builders; a source can be referenced in
 # build blocks. A build block runs provisioners and post-processors on a
 # source.

@@ -1,12 +1,3 @@
-variable "region" {
-  type    = string
-  default = "eu-west-2"
-}
-
-locals {
-  timestamp = regex_replace(timestamp(), "[- TZ:]", "")
-}
-
 source "amazon-ebs" "tooling" {
   ami_name      = "tooling-ami-${local.timestamp}"
   instance_type = "t2.micro"
