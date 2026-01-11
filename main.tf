@@ -95,7 +95,7 @@ module "compute" {
 #################################################
 
 module "efs" {
-  source          = "./modules/efs"
+  source          = "./modules/EFS"
   account_no      = var.account_no
   tags            = var.tags
   private_subnets = module.network.private_subnet_ids
@@ -107,7 +107,7 @@ module "efs" {
 #################################################
 
 module "rds" {
-  source           = "./modules/rds"
+  source           = "./modules/RDS"
   private_subnets  = module.network.private_subnet_ids
   datalayer_sg_id  = module.security.datalayer_sg_id
   tags             = var.tags
