@@ -1,0 +1,6 @@
+---
+# tasks file for roles/platform/artifactory
+
+- name: Install Artifactory placeholder
+  debug:
+    msg: "Artifactory installation goes here"

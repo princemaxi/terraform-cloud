@@ -1,0 +1,20 @@
+---
+# tasks file for roles/tooling
+
+- name: Install Apache and PHP
+  yum:
+    name:
+      - httpd
+      - php
+    state: present
+
+- name: Deploy tooling page
+  copy:
+    content: "Tooling Website"
+    dest: /var/www/html/index.html
+
+- name: Enable Apache
+  service:
+    name: httpd
+    state: started
+    enabled: true

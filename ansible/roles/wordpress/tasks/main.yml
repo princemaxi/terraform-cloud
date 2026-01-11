@@ -1,0 +1,31 @@
+---
+# tasks file for roles/wordpress
+
+- name: Install WordPress dependencies
+  yum:
+    name:
+      - httpd
+      - php
+      - php-mysqlnd
+      - mariadb105-client
+      - wget
+    state: present
+
+- name: Download WordPress
+  get_url:
+    url: https://wordpress.org/latest.tar.gz
+    dest: /tmp/wp.tar.gz
+
+- name: Extract WordPress
+  unarchive:
+    src: /tmp/wp.tar.gz
+    dest: /var/www/html
+    remote_src: yes
+    extra_opts: [--strip-components=1]
+
+- name: Set permissions
+  file:
+    path: /var/www/html
+    owner: apache
+    group: apache
+    recurse: yes

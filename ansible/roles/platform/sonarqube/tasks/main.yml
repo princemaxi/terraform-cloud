@@ -1,0 +1,11 @@
+---
+# tasks file for roles/platform/sonarqube
+
+- name: Install Java
+  yum:
+    name: java-11-openjdk
+    state: present
+
+- name: SonarQube placeholder
+  debug:
+    msg: "SonarQube installation goes here"

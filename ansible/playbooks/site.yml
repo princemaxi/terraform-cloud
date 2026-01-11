@@ -1,0 +1,30 @@
+---
+- name: Apply common baseline
+  hosts: all
+  become: true
+  roles:
+    - common
+
+- name: Hybrid role routing by tags
+  hosts: all
+  become: true
+  tasks:
+    - name: Apply Bastion role
+      include_role:
+        name: bastion
+      when: "'tag_Name_ACS-bastion' in group_names"
+
+    - name: Apply Nginx role
+      include_role:
+        name: nginx
+      when: "'tag_Name_ACS-nginx' in group_names"
+
+    - name: Apply Tooling role
+      include_role:
+        name: tooling
+      when: "'tag_Name_ACS-tooling' in group_names"
+
+    - name: Apply WordPress role
+      include_role:
+        name: wordpress
+      when: "'tag_Name_ACS-wordpress' in group_names"

@@ -1,0 +1,18 @@
+---
+- name: Jenkins Server
+  hosts: tag_Name_ACS-jenkins
+  become: true
+  roles:
+    - platform/jenkins
+
+- name: SonarQube Server
+  hosts: tag_Name_ACS-sonarqube
+  become: true
+  roles:
+    - platform/sonarqube
+
+- name: Artifactory Server
+  hosts: tag_Name_ACS-artifactory
+  become: true
+  roles:
+    - platform/artifactory

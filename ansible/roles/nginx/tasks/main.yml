@@ -1,0 +1,13 @@
+---
+# tasks file for roles/nginx
+
+- name: Install nginx
+  yum:
+    name: nginx
+    state: present
+
+- name: Enable nginx
+  service:
+    name: nginx
+    state: started
+    enabled: true

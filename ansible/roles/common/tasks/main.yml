@@ -1,0 +1,17 @@
+---
+# tasks file for roles/common
+
+- name: Install base packages
+  yum:
+    name:
+      - git
+      - wget
+      - vim
+      - chrony
+    state: present
+
+- name: Enable chronyd
+  service:
+    name: chronyd
+    state: started
+    enabled: true

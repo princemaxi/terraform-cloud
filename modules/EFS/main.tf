@@ -3,6 +3,7 @@
 ##########################################
 resource "aws_kms_key" "acs_kms" {
   description = "KMS key for EFS encryption"
+  deletion_window_in_days = 7  # Minimum is 7 days, maximum is 30
 
   policy = jsonencode({
     Version = "2012-10-17"
