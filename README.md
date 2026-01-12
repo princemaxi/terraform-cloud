@@ -1,402 +1,243 @@
-# Automate Infrastructure With IaC using Terraform (Refactoring & Remote Backend) 
+# Automate Infrastructure With IaC Using Terraform Cloud
 
-> Project Title: Automate Infrastructure With IaC using Terraform 3 (Refactoring)
->
-> Level: Intermediate → Advanced
-> 
-> Focus: Remote Backend, State Locking, Modular Terraform Design, Dynamic Configuration
+## Project Overview
 
-## 📌 Project Overview
+This project demonstrates how to automate cloud infrastructure provisioning using **Infrastructure as Code (IaC)** with **Terraform** and **Terraform Cloud**. It focuses on migrating an existing Terraform codebase to Terraform Cloud, enabling remote execution, shared state management, GitHub-driven workflows, and operational visibility through notifications.
 
-This project is the third iteration in a series focused on Infrastructure as Code (IaC) using Terraform on AWS. In earlier projects, infrastructure was provisioned using Terraform with a local backend, suitable only for learning and experimentation.
-
-In this phase, we introduce production-grade Terraform practices, including:
-
-- Remote state management using Amazon S3
-- State locking and consistency using Amazon DynamoDB
-- Refactoring infrastructure into reusable Terraform modules
-- Writing dynamic, scalable, and maintainable Terraform code
-- Applying best practices for collaboration in DevOps teams
-
-This project prepares the infrastructure codebase for team collaboration, scalability, and future automation.
-
-## 🏗️ Architecture Diagram
-
-Below is a high-level logical architecture of the infrastructure provisioned with Terraform in this project.
-
-```pgsql
-                              ┌───────────────┐
-                              │   Internet    │
-                              └───────┬───────┘
-                                      │
-                          ┌───────────▼───────────┐
-                          │     External ALB       │
-                          │     (Public Subnets)   │
-                          └───────────┬───────────┘
-                                      │
-                    ┌─────────────────▼─────────────────┐
-                    │        Auto Scaling Group           │
-                    │      (NGINX EC2 Instances)          │
-                    │           Private Subnets           │
-                    └─────────────────┬─────────────────┘
-                                      │
-                          ┌───────────▼───────────┐
-                          │      Internal ALB      │
-                          │      (Private Subnets) │
-                          └───────────┬───────────┘
-                                      │
-        ┌─────────────────────────────┼─────────────────────────────┐
-        │                             │                             │
-┌───────▼────────┐           ┌────────▼────────┐           ┌────────▼────────┐
-│ WordPress ASG  │           │  Tooling ASG    │           │   Other Apps    │
-│ Private Subnet │           │ Private Subnet  │           │ Private Subnet  │
-└───────┬────────┘           └────────┬────────┘           └────────┬────────┘
-        │                             │                             │
-┌───────▼─────────┐         ┌─────────▼────────┐         ┌─────────▼────────┐
-│   Amazon EFS    │         │    Amazon RDS    │         │   CloudWatch     │
-│ Shared Storage  │         │ MySQL/Postgres   │         │ Logs & Metrics   │
-└─────────────────┘         └──────────────────┘         └──────────────────┘
-
-
-                 Terraform Remote State Backend
-┌──────────────────────────────────────────────────────────────┐
-│   S3 Bucket (Encrypted, Versioned Terraform State)            │
-│   DynamoDB Table (State Locking & Consistency)                │
-└──────────────────────────────────────────────────────────────┘
-
-```
-
-### Architecture Highlights
-
-- Public Layer: Internet-facing ALB handles inbound HTTP/HTTPS traffic
-- Private Compute Layer: EC2 instances run inside Auto Scaling Groups
-- Internal Routing: Internal ALB routes traffic to WordPress and Tooling services
-- Persistence: RDS for databases, EFS for shared storage
-- Security: Strict Security Groups per layer
-- State Management: Remote Terraform state stored securely in S3 with DynamoDB locking
-
-## 🚀 Key Objectives
-
-- Migrate Terraform state from local backend to S3 remote backend
-- Enable state locking using DynamoDB
-- Refactor infrastructure using Terraform modules
-- Reduce duplication with dynamic blocks, maps, lookups, and conditional expressions
-- Establish a clean, professional repository structure suitable for enterprise use
-
-## 🧱 Why Remote Backend?
-
-### Problems with Local Backend
-
-- State file stored locally → not shareable
-- No locking → risk of state corruption
-- Not suitable for teams or CI/CD pipelines
-
-### Solution: S3 + DynamoDB
-
-Using S3 as a backend allows Terraform state to be:
-
-- Centrally stored
-- Versioned
-- Encrypted
-- Accessible by multiple engineers
-
-### Using DynamoDB enables:
-
-- State locking
-- Prevention of concurrent writes
-- Infrastructure consistency
-
-# 🗂️ Backend Configuration
-
-## Step 1: Create Backend resources for State (backend-resources.tf)
-
-```hcl
-resource "aws_s3_bucket" "terraform_state" {
-  bucket = "princemaxi-dev-terraform-bucket"
-
-  tags = {
-    Name        = "terraform-state-bucket"
-    Environment = "dev"
-  }
-}
-
-resource "aws_s3_bucket_versioning" "terraform_state" {
-  bucket = aws_s3_bucket.terraform_state.id
-
-  versioning_configuration {
-    status = "Enabled"
-  }
-}
-
-resource "aws_s3_bucket_server_side_encryption_configuration" "terraform_state" {
-  bucket = aws_s3_bucket.terraform_state.id
-
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
-    }
-  }
-}
-
-resource "aws_dynamodb_table" "terraform_locks" {
-  name         = "terraform-locks"
-  billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "LockID"
-
-  attribute {
-    name = "LockID"
-    type = "S"
-  }
-
-  tags = {
-    Name        = "terraform-locks"
-    Environment = "dev"
-  }
-}
-```
-
-⚠️ Note: 
-- S3 bucket names are globally unique. Adjust accordingly.
-- Terraform requires both S3 and DynamoDB to exist before configuring the backend.
-
-![Alt text](/image/2.png)
-![Alt text](/image/3.png)
-![Alt text](/image/4.png)
-![Alt text](/image/1.png)
-
-## Step 2: Configure Terraform Backend (backend.tf)
-
-```hcl
-terraform {
-   backend "s3" {
-     bucket         = "princemaxi-dev-terraform-bucket"
-     key            = "global/terraform/terraform.tfstate"
-     region         = "eu-west-2"
-     dynamodb_table = "terraform-locks"
-     encrypt        = true
-   }
-}
-```
-
-![Alt text](/image/6.png)
-
-## Run:
-```hcl
-terraform init
-```
-Confirm backend migration when prompted.
-
-![Alt text](/image/7.png)
-![Alt text](/image/8.png)
-
-## 🔐 State Locking Verification
-
-1. Open DynamoDB → terraform-locks in AWS Console
-![Alt text](/image/9.png)
-2. Run:
-   ```hcl
-   terraform plan
-   ```
-   ![Alt text](/image/10.png)
-
-3. Refresh DynamoDB table → observe lock entry
-
-4. After completion → lock is released
-
-This ensures safe collaboration across teams.
-
-## 📤 Terraform Outputs (output.tf)
-
-```hcl
-output "s3_bucket_arn" {
-value = aws_s3_bucket.terraform_state.arn
-description = "The ARN of the S3 bucket"
-}
-
-
-output "dynamodb_table_name" {
-value = aws_dynamodb_table.terraform_locks.name
-description = "The name of the DynamoDB table"
-}
-```
-
-![Alt text](/image/12.png)
-
-## 🌍 Environment Isolation
-
-Terraform supports multiple environment strategies:
-
-### Option A: Terraform Workspaces
-
-Best for environments with minimal differences.
-```
-terraform workspace new dev
-terraform workspace select prod
-```
-### Option B: Directory-based Separation (Recommended)
-
-Best for environments with significant configuration differences.
-```
-environments/
-├── dev/
-├── uat/
-├── prod/
-```
-
-## 🔁 Refactoring with Dynamic Blocks
-
-Dynamic blocks help eliminate repetitive configurations.
-
-Example: Security Groups
-
-```hcl
-dynamic "ingress" {
-for_each = var.ingress_rules
-content {
-from_port = ingress.value.from
-to_port = ingress.value.to
-protocol = ingress.value.protocol
-cidr_blocks = ingress.value.cidr
-}
-}
-```
-![Alt text](/image/14.png)
-
-## 🗺️ AMI Selection with Map & Lookup
-
-```hcl
-variable "images" {
-type = map(string)
-default = {
-eu-west-2 = "ami-0abcdef"
-us-east-1 = "ami-123456"
-}
-}
-
-resource "aws_instance" "web" {
-ami = lookup(var.images, var.region, "ami-default")
-}
-```
-![Alt text](/image/15.png)
-
-This ensures region-aware AMI selection.
-
-## 🔀 Conditional Expressions
-
-```hcl
-resource "aws_db_instance" "read_replica" {
-count = var.create_read_replica ? 1 : 0
-replicate_source_db = aws_db_instance.primary.id
-}
-```
-Used to conditionally create resources.
-
-## 📦 Terraform Modules
-
-### Modularizing Terraform for Maintainability
-
-Instead of one large Terraform file, the infrastructure is split into logical modules:
-
-- VPC
-- Security Groups
-- ALB
-- Compute
-- RDS
-- EFS
-
-Each module contains:
-
-- main.tf
-- variables.tf
-- outputs.tf
-
-This structure allows teams to:
-
-- Work independently
-- Reuse modules
-- Scale infrastructure with minimal friction
-
-Example
-
-```hcl
-module "network" {
-source = "./modules/network"
-}
-```
-
-Referencing outputs:
-```hcl
-subnets = module.network.public_subnets
-```
-
-![Alt text](/image/17.png)
-![Alt text](/image/18.png)
-
-## 🗃️ Project Structure: We should now have this project structure
-
-```
-PBL/
-├── modules/
-│ ├── ALB/
-│ ├── EFS/
-│ ├── RDS/
-│ ├── autoscaling/
-│ ├── compute/
-│ ├── network/
-│ └── security/
-├── backend.tf
-├── providers.tf
-├── data.tf
-├── main.tf
-├── variables.tf
-├── terraform.tfvars
-└── outputs.tf
-```
-This structure supports scalable enterprise IaC.
-
-## ⚠️ Known Limitations
-
-- AMIs not preconfigured
-- User-data scripts lack dynamic endpoints
-- Website not fully functional
-
-➡️ These will be solved using Packer, Ansible, and Terraform Cloud in future projects.
-
-
-🛠️ Pro Tips
-
-- Validate before planning:
-  ```bash
-  terraform validate
-  ```
-- Format code consistently:
-  ```bash
-  terraform fmt
-  ```
-- Make sure it works
-  ```bash
-  terraform plan
-  terraform apply
-  ```
-  ![Alt text](/image/19.png)
-  ![Alt text](/image/20.png)
-- Confirm resources in AWS Console
-  ![Alt text](/image/21.png)
-  ![Alt text](/image/22.png)
-  ![Alt text](/image/23.png)
-  ![Alt text](/image/24.png)
+The project reflects real-world DevOps practices by integrating Terraform Cloud with AWS, GitHub, Packer, and Ansible, while implementing environment separation, governance, and automation.
 
 ---
 
-# 📌 Conclusion
+## Why Terraform Cloud?
 
-This project demonstrates how to move from basic Terraform usage to production-ready Infrastructure as Code. With remote backends, state locking, modular design, and dynamic configurations, this repository reflects real-world DevOps standards.
+Terraform is an open-source tool that allows you to define and provision infrastructure using HashiCorp Configuration Language (HCL). Traditionally, Terraform runs locally on a machine managed by the user. While this works for individuals, it becomes inefficient and risky in team-based environments.
 
-## 👤 Author
-```
-Prince Maxwell Ugochukwu
-DevOps Engineer | Cloud Enthusiast | IaC Advocate
-```
+Terraform Cloud provides a **managed, centralized, and secure platform** for running Terraform. It eliminates the need to manage local Terraform execution environments and introduces:
 
-⭐ If this project helped you, consider starring the repository!
+* Remote execution on disposable virtual machines
+* Centralized and versioned state management
+* State locking to prevent concurrent conflicts
+* Team collaboration and governance
+* VCS-driven automation
+* Audit trails and run history
+* Notifications and integrations (Email, Slack, Webhooks)
 
+---
+
+## Architecture and Workflow
+
+* **Version Control System (VCS):** GitHub
+* **Workflow Type:** Version Control Workflow
+* **Cloud Provider:** AWS
+* **Execution Mode:** Remote (Terraform Cloud)
+* **State Management:** Terraform Cloud Remote Backend
+* **Image Management:** Packer
+* **Configuration Management:** Ansible
+
+Any change pushed to the configured GitHub branch triggers a Terraform plan in Terraform Cloud. Applies are approved manually to prevent unintended infrastructure changes.
+
+---
+
+## Prerequisites
+
+Ensure the following tools are installed locally:
+
+* Terraform
+* Git
+* AWS CLI
+* Packer
+* Ansible
+
+You will also need:
+
+* An AWS account
+* A GitHub account
+* A Terraform Cloud account
+
+---
+
+## Step-by-Step Implementation
+
+### 1. Create a Terraform Cloud Account
+
+* Sign up at Terraform Cloud
+* Verify your email
+* Log in to access the Terraform Cloud dashboard
+
+Terraform Cloud offers a free tier that supports all core features required for this project.
+
+---
+
+### 2. Create an Organization
+
+* Select **Start from scratch**
+* Provide a unique organization name
+* Create the organization
+
+The organization serves as a logical boundary for workspaces, teams, and policies.
+
+---
+
+### 3. Create and Configure a Workspace
+
+1. Create a new GitHub repository (e.g. `terraform-cloud`)
+2. Push your existing Terraform code from previous projects into the repository
+3. In Terraform Cloud:
+
+   * Create a new workspace
+   * Select **Version Control Workflow**
+   * Connect your GitHub account
+   * Select the repository
+   * Provide a workspace description
+   * Leave other settings as default
+
+Terraform Cloud will now listen for changes in the repository.
+
+---
+
+### 4. Configure Variables
+
+Terraform Cloud supports:
+
+* **Environment Variables** (for provider credentials)
+* **Terraform Variables** (used directly in `.tf` files)
+
+Configure the following environment variables:
+
+* `AWS_ACCESS_KEY_ID`
+* `AWS_SECRET_ACCESS_KEY`
+
+Mark them as **Sensitive** to prevent exposure in logs and UI.
+
+These credentials allow Terraform Cloud to provision AWS resources securely.
+
+---
+
+### 5. Refactor Repository for Packer and Ansible
+
+To support image creation and configuration management:
+
+* Add a `packer/` directory for AMI builds
+* Add an `ansible/` directory for configuration scripts
+
+Ensure your Terraform code references the AMIs built by Packer and uses Ansible where required for post-provisioning configuration.
+
+---
+
+### 6. Run Terraform Plan and Apply from Terraform Cloud
+
+* Navigate to the **Runs** tab
+* Click **Queue plan manually**
+* Review the plan output
+* If successful, click **Confirm and apply**
+* Add a comment and confirm
+
+Terraform Cloud creates a new state version for every successful apply, ensuring full traceability.
+
+---
+
+### 7. Test Automated Runs via GitHub
+
+* Make a change to any `.tf` file
+* Commit and push to the connected branch
+* Observe that Terraform Cloud automatically triggers a **plan**
+
+By default:
+
+* Plans run automatically
+* Applies require manual approval
+
+This prevents accidental infrastructure changes and unexpected cloud costs.
+
+---
+
+## Practice Task 1: Environment-Based Workflows
+
+### Objectives
+
+1. Create three Git branches:
+
+   * `dev`
+   * `test`
+   * `prod`
+
+2. Configure Terraform Cloud to:
+
+   * Automatically trigger runs **only for the dev branch**
+   * Disable auto-runs for test and prod
+
+3. Configure Notifications:
+
+   * Email notifications
+   * Slack notifications
+   * Events: plan started, run errored
+
+4. Destroy infrastructure from Terraform Cloud Web Console
+
+---
+
+### Destroying Infrastructure
+
+* Open the workspace
+* Go to **Settings → Destruction and Deletion**
+* Queue a destroy plan
+* Review and confirm
+
+This ensures clean teardown without using local Terraform commands.
+
+---
+
+## Public vs Private Module Registry
+
+### Public Module Registry
+
+Terraform provides a public registry containing reusable modules maintained by the community and HashiCorp. These modules accelerate development and promote best practices.
+
+Example use cases:
+
+* VPC modules
+* ALB modules
+* RDS modules
+
+---
+
+### Private Module Registry
+
+For enterprise-scale projects, teams often create internal modules.
+
+Benefits:
+
+* Reusability
+* Standardization
+* Governance
+* Version control
+
+---
+
+## Practice Task 2: Working with Private Modules
+
+1. Create a simple Terraform module repository
+2. Push the module to GitHub
+3. Import it into Terraform Cloud Private Registry
+4. Reference the module in a Terraform configuration
+5. Create a workspace
+6. Deploy infrastructure
+7. Destroy deployment
+
+---
+
+## Key Learnings
+
+* Terraform Cloud enables secure, scalable IaC workflows
+* Remote state and execution eliminate local risks
+* VCS-driven automation improves collaboration
+* Notifications enhance visibility and governance
+* Environment isolation prevents production risks
+
+---
+
+## Conclusion
+
+This project demonstrates a production-ready approach to Infrastructure as Code using Terraform Cloud. It highlights best practices used by DevOps teams to manage cloud infrastructure reliably, securely, and at scale.
+
+The implementation is suitable for real-world environments, technical interviews, and enterprise DevOps portfolios.
