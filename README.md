@@ -361,7 +361,7 @@ Example use cases:
 | Cost Control  | Approval gates         | Custom logic required    |
 
 
-Terraform Cloud is recommended for infrastructure‑centric workflows.
+Terraform Cloud provides an infrastructure-native CI/CD experience, while GitHub Actions requires additional tooling and operational overhead to achieve comparable functionality.
 
 ---
 
