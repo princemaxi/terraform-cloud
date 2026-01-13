@@ -34,10 +34,91 @@ Terraform Cloud provides a **managed, centralized, and secure platform** for run
 * **Image Management:** Packer
 * **Configuration Management:** Ansible
 
-Any change pushed to the configured GitHub branch triggers a Terraform plan in Terraform Cloud. Applies are approved manually to prevent unintended infrastructure changes.
+Any change pushed to the configured GitHub branch triggers a Terraform plan in Terraform Cloud. Applies are approved manually to prevent unintended infrastructure changes(very important for production environment).
 
 ---
 
+## Repository Structure
+```
+.
+├── AMI/                         # Packer AMI build definitions
+│   ├── bastion.pkr.hcl
+│   ├── nginx.pkr.hcl
+│   ├── tooling.pkr.hcl
+│   ├── wordpress.pkr.hcl
+│   ├── locals.pkr.hcl
+│   ├── plugins.pkr.hcl
+│   ├── variables.pkr.hcl
+│   ├── *.sh                     # Provisioning shell scripts
+│   └── *.pkr.hcl                # Image-specific packer configs
+│
+├── ansible/                     # Configuration management
+│   ├── ansible.cfg
+│   ├── inventories/aws/
+│   ├── group_vars/
+│   ├── playbooks/               # bootstrap, platform, site
+│   └── roles/                   # bastion, nginx, tooling, platform, wordpress
+│
+├── modules/                     # Terraform reusable modules
+│   ├── network/                 # VPC, subnets, routing
+│   ├── security/                # Security groups, rules
+│   ├── iam/                     # IAM roles & policies
+│   ├── ALB/                     # External & internal load balancers
+│   ├── compute/                 # ASG & Launch Templates
+│   ├── EFS/                     # Elastic File System
+│   └── RDS/                     # Relational Database Service
+│
+├── images/                      # Documentation screenshots
+├── backend.tf                   # Terraform Cloud backend config
+├── backend-resources.tf         # S3 + DynamoDB bootstrap
+├── main.tf                      # Root orchestration module
+├── variables.tf
+├── terraform.tfvars
+├── README.md
+└── LAB.md
+```
+
+## Architectural Diagram
+```
+┌────────────────────────────────────────────────────────────┐
+│                      Terraform Cloud                        │
+│        Remote Plan | Apply | State | Locks | Audit           │
+└───────────────┬────────────────────────────────────────────┘
+                │ GitHub VCS (dev / test / prod branches)
+                ▼
+┌────────────────────────────────────────────────────────────┐
+│                           AWS                               │
+│                                                            │
+│   ┌────────────────┐                                      │
+│   │     Packer     │  Builds Custom AMIs                  │
+│   │  (AMI folder)  │───────────────┐                      │
+│   └────────────────┘               │                      │
+│                                    ▼                      │
+│                           ┌──────────────────┐            │
+│                           │  EC2 Launch       │            │
+│                           │  Templates        │            │
+│                           └──────────────────┘            │
+│                                    │                      │
+│   ┌──────────────┐        ┌──────────────────┐            │
+│   │   ALB        │◀──────▶│ Auto Scaling      │            │
+│   │ (Ext / Int)  │        │ Groups            │            │
+│   └──────────────┘        └──────────────────┘            │
+│                                    │                      │
+│                                    ▼                      │
+│                           ┌──────────────────┐            │
+│                           │    Ansible        │            │
+│                           │  Configuration    │            │
+│                           │  (roles & plays)  │            │
+│                           └──────────────────┘            │
+│                                    │                      │
+│        ┌──────────────┐      ┌──────────────┐            │
+│        │     EFS      │      │      RDS     │            │
+│        └──────────────┘      └──────────────┘            │
+│                                                            │
+└────────────────────────────────────────────────────────────┘
+```
+
+---
 ## Prerequisites
 
 Ensure the following tools are installed locally:
@@ -74,6 +155,10 @@ Terraform Cloud offers a free tier that supports all core features required for 
 * Provide a unique organization name
 * Create the organization
 
+![alt text](/images/1.png)
+![alt text](/images/2.png)
+![alt text](/images/3.png)
+
 The organization serves as a logical boundary for workspaces, teams, and policies.
 
 ---
@@ -81,15 +166,22 @@ The organization serves as a logical boundary for workspaces, teams, and policie
 ### 3. Create and Configure a Workspace
 
 1. Create a new GitHub repository (e.g. `terraform-cloud`)
+![alt text](/images/4.png)
 2. Push your existing Terraform code from previous projects into the repository
+![alt text](/images/5.png)
 3. In Terraform Cloud:
 
    * Create a new workspace
    * Select **Version Control Workflow**
    * Connect your GitHub account
    * Select the repository
-   * Provide a workspace description
+   * Provide a workspace description(optional)
    * Leave other settings as default
+  ![alt text](/images/6.png)
+  ![alt text](/images/7.png)
+  ![alt text](/images/8.png)
+  ![alt text](/images/9.png)
+  ![alt text](/images/10.png)
 
 Terraform Cloud will now listen for changes in the repository.
 
@@ -106,6 +198,9 @@ Configure the following environment variables:
 
 * `AWS_ACCESS_KEY_ID`
 * `AWS_SECRET_ACCESS_KEY`
+![alt text](/images/11.png)
+![alt text](/images/12.png)
+![alt text](/images/13.png)  
 
 Mark them as **Sensitive** to prevent exposure in logs and UI.
 
@@ -117,8 +212,10 @@ These credentials allow Terraform Cloud to provision AWS resources securely.
 
 To support image creation and configuration management:
 
-* Add a `packer/` directory for AMI builds
+* Add an `AMI/` directory for AMI builds
+  ![alt text](/images/AMI.png)
 * Add an `ansible/` directory for configuration scripts
+  ![alt text](/images/Ansible.png)
 
 Ensure your Terraform code references the AMIs built by Packer and uses Ansible where required for post-provisioning configuration.
 
@@ -127,10 +224,14 @@ Ensure your Terraform code references the AMIs built by Packer and uses Ansible 
 ### 6. Run Terraform Plan and Apply from Terraform Cloud
 
 * Navigate to the **Runs** tab
-* Click **Queue plan manually**
+  ![alt text](/images/21.png)
+* Plan queued plan automatically
 * Review the plan output
+  ![alt text](/images/22.png)
 * If successful, click **Confirm and apply**
+  ![alt text](/images/23.png)
 * Add a comment and confirm
+  ![alt text](/images/24.png)
 
 Terraform Cloud creates a new state version for every successful apply, ensuring full traceability.
 
@@ -141,6 +242,7 @@ Terraform Cloud creates a new state version for every successful apply, ensuring
 * Make a change to any `.tf` file
 * Commit and push to the connected branch
 * Observe that Terraform Cloud automatically triggers a **plan**
+![alt text](/images/21.png)
 
 By default:
 
@@ -160,17 +262,26 @@ This prevents accidental infrastructure changes and unexpected cloud costs.
    * `dev`
    * `test`
    * `prod`
-
+   * Create and configure workspaces for the 3 branches on Terraform cloud 
+  ![alt text](/images/26.png)
+  ![alt text](/images/43.png)  
+  
 2. Configure Terraform Cloud to:
 
-   * Automatically trigger runs **only for the dev branch**
+   * Automatically trigger runs **only for the dev branch**.
+    ![alt text](/images/27.png)
    * Disable auto-runs for test and prod
 
 3. Configure Notifications:
 
    * Email notifications
-   * Slack notifications
+   * Slack notifications (optional)
    * Events: plan started, run errored
+   ![alt text](/images/33.png)
+   ![alt text](/images/34.png)
+   ![alt text](/images/35.png)
+   ![alt text](/images/36.png)
+   ![alt text](/images/37.png) 
 
 4. Destroy infrastructure from Terraform Cloud Web Console
 
@@ -182,6 +293,7 @@ This prevents accidental infrastructure changes and unexpected cloud costs.
 * Go to **Settings → Destruction and Deletion**
 * Queue a destroy plan
 * Review and confirm
+![alt text](/images/44.png)
 
 This ensures clean teardown without using local Terraform commands.
 
@@ -201,6 +313,58 @@ Example use cases:
 
 ---
 
+## Troubleshooting Guide
+
+- Backend / State Migration Errors
+
+  * Symptom: Backend configuration changed
+
+  * Fix:
+
+    `terraform init -migrate-state`
+    ![alt text](/images/25.png)
+
+- Resource Already Exists Errors
+
+  Occurs when resources were created outside Terraform Cloud state.
+
+  Resolution Options:
+
+  * Import resource into state
+
+  * Remove resource manually
+
+  * Remove stale state reference
+
+- Import Failures
+
+  Ensure:
+
+  * Exact resource name
+
+  * Correct region
+
+  * Resource exists
+
+- Drift Detection
+
+  Terraform Cloud automatically detects drift during plan runs.
+
+## CI/CD Comparison: Terraform Cloud vs GitHub Actions
+
+| Feature        | Terraform Cloud        | GitHub Actions          |
+|---------------|------------------------|--------------------------|
+| Remote State  | Native (managed)       | Manual setup required    |
+| State Locking | Built-in               | Manual (e.g. DynamoDB)   |
+| RBAC          | Yes (workspace-level)  | Limited (repo-based)     |
+| Audit Logs    | Full run history       | Partial (workflow logs)  |
+| Cost Control  | Approval gates         | Custom logic required    |
+
+
+Terraform Cloud is recommended for infrastructure‑centric workflows.
+
+---
+
 ### Private Module Registry
 
 For enterprise-scale projects, teams often create internal modules.
@@ -211,18 +375,6 @@ Benefits:
 * Standardization
 * Governance
 * Version control
-
----
-
-## Practice Task 2: Working with Private Modules
-
-1. Create a simple Terraform module repository
-2. Push the module to GitHub
-3. Import it into Terraform Cloud Private Registry
-4. Reference the module in a Terraform configuration
-5. Create a workspace
-6. Deploy infrastructure
-7. Destroy deployment
 
 ---
 
