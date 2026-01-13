@@ -11,7 +11,7 @@ data "aws_availability_zones" "available" {
 }
 
 #################################################
-# Network Module (This is dynamic)
+# Network Module
 #################################################
 
 module "network" {
